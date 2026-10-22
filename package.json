@@ -1,0 +1,31 @@
+{
+  "name": "xjergx-harness",
+  "version": "0.2.0",
+  "description": "Agent-agnostic development harness that routes each ticket to ODD, RDD or SDD depending on its size and uncertainty.",
+  "type": "module",
+  "bin": {
+    "xjergx": "bin/xjergx.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "agents",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "harness",
+    "spec-driven-development",
+    "claude-code",
+    "opencode",
+    "codex",
+    "pi"
+  ]
+}
