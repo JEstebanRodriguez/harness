@@ -51,7 +51,7 @@ test('ODD lane: classify → build → archive → completed', () => {
   ev = settle(ctx, task);
   assert.equal(ev.phase.id, 'archive');
 
-  writeTaskFile(ws, '../engram', `${task.id}.md`, '# Engram');
+  writeTaskFile(ws, '../memory/tasks', `${task.id}.md`, '# Engram');
   ev = settle(ctx, task);
   assert.equal(ev.type, 'completed');
   assert.equal(task.status, 'completed');

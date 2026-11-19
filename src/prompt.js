@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { LANES, LANE_ORDER, laneRank, CLASSIFY_PHASE } from './lanes.js';
 import { outputPath, listTaskArtifacts } from './artifacts.js';
 import { PACKAGE_ROOT, taskDir, display } from './paths.js';
+import { parseFrontmatter } from './frontmatter.js';
 
 /** Role prompt body: workspace override in .xjergx/agents/ wins over the bundled one. */
 export function loadRole(paths, agent) {
@@ -12,16 +13,7 @@ export function loadRole(paths, agent) {
   return parseFrontmatter(readFileSync(file, 'utf8'));
 }
 
-export function parseFrontmatter(text) {
-  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  if (!m) return { meta: {}, body: text.trim() };
-  const meta = {};
-  for (const line of m[1].split(/\r?\n/)) {
-    const kv = line.match(/^([\w-]+):\s*(.*)$/);
-    if (kv) meta[kv[1]] = kv[2].trim();
-  }
-  return { meta, body: text.slice(m[0].length).trim() };
-}
+export { parseFrontmatter };
 
 const CHECK_HELP = {
   exists: 'The file must exist and not be empty.',
@@ -46,7 +38,8 @@ export function buildPrompt(ctx, task, phase) {
   const out = display(paths, outputPath(paths, task, phase));
   const dir = display(paths, taskDir(paths, task.id));
   const lane = task.lane ? LANES[task.lane] : null;
-  const engramDir = display(paths, paths.engram);
+  const memoryDir = display(paths, paths.memory);
+  const progress = `${display(paths, taskDir(paths, task.id))}/progress-${phase.id}.md`;
 
   const inputs = listTaskArtifacts(paths, task.id)
     .map((f) => display(paths, f))
@@ -75,7 +68,8 @@ export function buildPrompt(ctx, task, phase) {
   lines.push(inputs.length
     ? `- **Read first (artifacts from earlier phases):** ${inputs.map((f) => `\`${f}\``).join(', ')}`
     : '- **Earlier artifacts:** none yet.');
-  lines.push(`- **Project memory (engram):** \`${engramDir}/\` — past tasks' decisions and reusable assets. Search it when your role asks for memory/engram.`);
+  lines.push(`- **Project memory (engram):** \`${memoryDir}/\` — past tickets (\`tasks/\`) and notes from every agent (\`notes/\`). Search it with \`xjergx memory search "<terms>"\` (it also covers the user's global memory).`);
+  lines.push(`- **Progress notes for this phase:** \`${progress}\` — if it exists, a previous session (maybe another agent) started this phase: continue from it instead of starting over.`);
   lines.push(`- **Your output (exact path):** \`${out}\``);
   lines.push('');
 
@@ -95,11 +89,14 @@ export function buildPrompt(ctx, task, phase) {
   lines.push(`1. This phase is finished only when \`${out}\` exists. ${CHECK_HELP[phase.check]}`);
   lines.push('2. Do NOT edit `.xjergx/backlog.json` and do NOT run other phases. The harness verifies your output and moves on.');
   lines.push('3. Respect the project: read its own conventions (AGENTS.md, CLAUDE.md, CONTRIBUTING, linters, existing code) before writing anything.');
-  lines.push('4. Tools such as "engram" or "codegraph" are optional. If you do not have them, use file search and the engram folder above instead.');
+  lines.push('4. Tools such as "engram" or "codegraph" are optional. If you do not have them, use `xjergx memory search` and file search instead.');
+  lines.push(`5. **Resumable work:** this phase may be continued by a different coding agent. Keep \`${progress}\` up to date as you go:`);
+  lines.push('   what is done, what is left, and every decision or answer the user gave you. Durable lessons for future tickets go to');
+  lines.push('   `xjergx memory add "<title>" --body "..." --type decision|convention|gotcha|asset`.');
 
   const heavier = task.lane ? LANE_ORDER.filter((l) => laneRank(l) > laneRank(task.lane)) : [];
   if (heavier.length && phase !== CLASSIFY_PHASE) {
-    lines.push(`5. **Escalation:** if you discover the ticket is bigger or riskier than this lane allows (it changes a schema, public API or`);
+    lines.push(`6. **Escalation:** if you discover the ticket is bigger or riskier than this lane allows (it changes a schema, public API or`);
     lines.push('   cross-service contract, touches auth/payments/personal data, or the scope keeps growing), stop and write');
     lines.push(`   \`${dir}/escalation.json\` with \`{"to": "${heavier.join('" | "')}", "reason": "..."}\`. The harness will move the task.`);
   }

@@ -24,7 +24,7 @@ duplicate work, ensure consistency, and surface potential conflicts.
 
 ### Step 1: Memory & History Search (Engram)
 
-Search the engram folder (and an engram/memory tool if you have one):
+Search the project memory with `xjergx memory search "<terms>"` (and an engram/memory tool if you have one):
 - Past features similar to the current task.
 - Established architectural patterns or past mistakes related to this domain.
 - Pre-existing rules or conventions for this feature type.

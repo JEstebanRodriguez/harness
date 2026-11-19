@@ -4,7 +4,7 @@
  *
  * Phase fields:
  *  - agent:      role prompt in agents/<agent>.md
- *  - output:     file the phase must produce inside the task folder ('@engram' = .xjergx/engram/<id>.md)
+ *  - output:     file the phase must produce inside the task folder ('@engram' = .xjergx/memory/tasks/<id>.md)
  *  - check:      how the harness verifies the output (see src/artifacts.js)
  *  - gate:       in interactive/dry-run mode a human approves the output before moving on
  *  - writesCode: dry-run mode stops before this phase

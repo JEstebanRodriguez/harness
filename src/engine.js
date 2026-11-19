@@ -106,6 +106,7 @@ function retryAfterFailedAudit(ctx, task, phase) {
 
   const archivedAudit = archiveTaskFile(ctx.paths, task.id, phase.output);
   archiveTaskFile(ctx.paths, task.id, retryPhase.output);
+  archiveTaskFile(ctx.paths, task.id, `progress-${retryPhase.id}.md`);
   task.lastAudit = display(ctx.paths, archivedAudit);
   task.status = retryPhase.id;
   log(task, 'review_failed', { attempt: count, audit: task.lastAudit });
@@ -142,6 +143,7 @@ export function switchLane(ctx, task, lane, source, reasons) {
   if (!isLane(lane)) throw new Error(`Carril inválido "${lane}".`);
   for (const p of LANES[lane].phases) {
     if (p.output !== '@engram') archiveTaskFile(ctx.paths, task.id, p.output);
+    archiveTaskFile(ctx.paths, task.id, `progress-${p.id}.md`);
   }
   log(task, 'lane_changed', { from: task.lane, to: lane, source });
   task.lane = lane;

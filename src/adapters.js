@@ -35,6 +35,12 @@ export const BUILTIN_ADAPTERS = {
     interactive: ['{prompt}'],
     headless: ['-p', '{prompt}'],
   },
+  omp: {
+    label: 'oh-my-pi',
+    bin: 'omp',
+    interactive: ['{prompt}'],
+    headless: ['-p', '{prompt}'],
+  },
 };
 
 /** Pseudo-agent: writes the prompt and lets the human paste it into any tool. */
@@ -78,7 +84,7 @@ export function invokeAgent(adapter, { message, interactive, cwd }) {
       cwd,
       stdio: 'inherit',
       shell: isWin, // .cmd shims need a shell on Windows
-      env: { ...process.env, XJERGX: '1' },
+      env: { ...process.env, XJERGX: '1', XJERGX_AGENT: adapter.name },
     });
     child.on('error', (err) => reject(new Error(`No pude ejecutar "${adapter.bin}": ${err.message}`)));
     child.on('exit', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
