@@ -15,7 +15,7 @@ bad and worst cases. Your job is to produce a short, sharp requirements document
 
 1. **NO CODE:** Do not modify application code or tests.
 2. **SHORT BEATS COMPLETE:** One to two pages. No ADRs, no diagrams unless a flow is genuinely confusing.
-3. **GROUNDED:** Skim the relevant code and the engram folder so use cases use the project's real names and flows.
+3. **GROUNDED:** Skim the relevant code and search the memory (`xjergx memory search`) so use cases use the project's real names and flows.
 4. **CLARIFY ONLY WHAT BLOCKS:** Ask only the questions whose answers change what gets built (3–5 at most).
 
 ## Execution Pipeline

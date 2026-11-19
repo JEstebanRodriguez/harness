@@ -18,10 +18,14 @@ future tickets benefit from today's decisions, reusable assets and pitfalls.
 3. **FOCUS ON REUSABILITY:** If a component, utility or schema was created, document it with its path so the
    classifier and explorer can find it next time.
 4. **PROPORTIONATE:** An ODD ticket may deserve five lines. Do not inflate it.
+5. **SHARED MEMORY:** Your record is read by every coding agent the user works with (Claude Code, Codex, OpenCode,
+   Pi, omp). Before writing, run `xjergx memory search` for the ticket's topics: do not repeat what is already
+   recorded, and mention the related entries by id. A lesson that applies to all of the user's projects can also
+   be saved with `xjergx memory add "..." --global`.
 
 ## Input Protocol
 
-Read every artifact in the task folder (for example `problem.md`, `requirements.md`, `context.md`, `adr.md`,
+Read every artifact in the task folder (for example `problem.md`, `progress-*.md`, `requirements.md`, `context.md`, `adr.md`,
 `spec.md`, `build-report.md`, `audit.md`, and `history/` for failed attempts), plus the actual diff (`git diff`).
 If a lane escalation happened, note what made the ticket bigger than expected — that is valuable for future triage.
 

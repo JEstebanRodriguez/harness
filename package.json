@@ -1,7 +1,7 @@
 {
   "name": "xjergx-harness",
-  "version": "0.2.0",
-  "description": "Agent-agnostic development harness that routes each ticket to ODD, RDD or SDD depending on its size and uncertainty.",
+  "version": "0.3.0",
+  "description": "Agent-agnostic development harness: routes each ticket to ODD, RDD or SDD and shares memory, skills, agents and session state across Claude Code, Codex, OpenCode, Pi and omp.",
   "type": "module",
   "bin": {
     "xjergx": "bin/xjergx.js"
@@ -10,6 +10,7 @@
     "bin",
     "src",
     "agents",
+    "skills",
     "README.md"
   ],
   "engines": {
@@ -26,6 +27,9 @@
     "claude-code",
     "opencode",
     "codex",
-    "pi"
+    "pi",
+    "omp",
+    "agent-skills",
+    "memory"
   ]
 }

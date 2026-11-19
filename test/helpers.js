@@ -5,6 +5,10 @@ import { workspacePaths } from '../src/paths.js';
 import { DEFAULT_CONFIG, mergeDeep } from '../src/config.js';
 import { saveBacklog } from '../src/backlog.js';
 
+// Never touch the real ~/.xjergx from tests.
+process.env.XJERGX_HOME = mkdtempSync(join(tmpdir(), 'xjergx-home-'));
+delete process.env.XJERGX_AGENT;
+
 export function makeWorkspace(configOverrides = {}) {
   const root = mkdtempSync(join(tmpdir(), 'xjergx-'));
   const paths = workspacePaths(root);

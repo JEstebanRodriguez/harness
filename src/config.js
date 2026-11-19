@@ -19,6 +19,8 @@ export const DEFAULT_CONFIG = {
   adapters: {},
   /** Run the clean-working-tree check before a task starts. */
   preflight: true,
+  /** Tools that `xjergx sync` generates native files for. */
+  targets: ['claude', 'codex', 'opencode', 'pi', 'omp'],
 };
 
 function isPlainObject(v) {
