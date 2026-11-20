@@ -36,6 +36,10 @@ next, the active ticket and the project memory. Continue from there; do not redo
 
 **While working**
 - Before an important decision, search the memory: \`xjergx memory search "<terms>"\` (\`xjergx memory show <id>\` to read one).
+  When Engram is installed this is the same store as the Engram MCP tools (\`mem_search\`, \`mem_save\`), so use
+  either; without Engram the memory lives in \`.xjergx/memory/\`.
+- If the codegraph MCP tools are available (\`codegraph_explore\`, \`codegraph_context\`), use them to find code
+  and measure the impact of a change before reading files one by one.
 - When you learn something future sessions must know (a decision and its why, a convention, a gotcha, a reusable
   asset, a user preference), record it: \`xjergx memory add "<title>" --body "..." --type decision|convention|gotcha|asset|preference\`
   (\`--global\` for things that apply to all of the user's projects).

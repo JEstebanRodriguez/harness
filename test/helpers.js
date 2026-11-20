@@ -8,6 +8,9 @@ import { saveBacklog } from '../src/backlog.js';
 // Never touch the real ~/.xjergx from tests.
 process.env.XJERGX_HOME = mkdtempSync(join(tmpdir(), 'xjergx-home-'));
 delete process.env.XJERGX_AGENT;
+// Never route to a real Engram install or depend on codegraph from tests (engram tests opt in).
+process.env.XJERGX_MEMORY_BACKEND = 'markdown';
+process.env.XJERGX_CODEGRAPH = 'off';
 
 export function makeWorkspace(configOverrides = {}) {
   const root = mkdtempSync(join(tmpdir(), 'xjergx-'));

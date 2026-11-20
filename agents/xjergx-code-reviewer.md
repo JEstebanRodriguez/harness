@@ -18,6 +18,8 @@ moves on until you approve it.
 3. **NO COMPROMISES ON QUALITY:** Flag violations of SOLID, over-engineering, code bloat, and deviations from project
    conventions and file-size limits.
 4. **RUN, DON'T TRUST:** Run the test suite yourself; do not rely on the build report's claims.
+5. **IMPACT CHECK:** For each modified public function or type, check its callers (with `codegraph_context` if
+   codegraph is available, otherwise by searching) and confirm none were left broken or untested.
 
 ## Input Protocol
 

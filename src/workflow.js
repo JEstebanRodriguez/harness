@@ -6,8 +6,21 @@ import { outputPath, archiveTaskFile } from './artifacts.js';
 import { display } from './paths.js';
 import { resolveAdapter, invokeAgent, commandExists } from './adapters.js';
 import { preflight } from './preflight.js';
+import { indexTaskRecord } from './memstore.js';
+import { join } from 'node:path';
 
 const MAX_STEPS = 50; // guard against a malformed state looping forever
+
+/** advance() plus side effects outside the state machine: index the finished ticket record in Engram. */
+function step(ctx, task) {
+  const before = task.status;
+  const ev = advance(ctx, task);
+  if (before === 'archive' && task.status === 'completed') {
+    const warning = indexTaskRecord(ctx, task, join(ctx.paths.engram, `${task.id}.md`));
+    if (warning) ev.message += ` (⚠ ${warning})`;
+  }
+  return ev;
+}
 
 /** Identifies one attempt at a phase: any state change (retry, escalation, approval) yields a new key. */
 function phaseKey(task, phase) {
@@ -57,7 +70,7 @@ export function nextAction(ctx, opts = {}) {
 
   const log = [];
   for (let i = 0; i < MAX_STEPS; i++) {
-    const ev = advance(ctx, task);
+    const ev = step(ctx, task);
     saveBacklog(ctx.paths, data);
     log.push(ev.message);
     const base = { task: task.id, lane: task.lane, status: task.status, log };
@@ -134,7 +147,7 @@ export async function runTask(ctx, opts, io) {
   let ranAgent = false;
 
   for (let i = 0; i < MAX_STEPS; i++) {
-    const ev = advance(ctx, task);
+    const ev = step(ctx, task);
     saveBacklog(ctx.paths, data);
 
     switch (ev.type) {

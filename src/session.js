@@ -4,7 +4,9 @@ import { spawnSync } from 'node:child_process';
 import { loadBacklog, findTask, now } from './backlog.js';
 import { LANES, CLASSIFY_PHASE, currentPhase } from './lanes.js';
 import { findRepos } from './preflight.js';
-import { listMemory } from './memory.js';
+import { overview, rememberHandoff, backendOf } from './memstore.js';
+import { codegraphStatus } from './tools.js';
+import { DEFAULT_CONFIG } from './config.js';
 import { collectSkills } from './catalog.js';
 import { display, taskDir } from './paths.js';
 
@@ -100,7 +102,7 @@ function activeTaskInfo(paths) {
  * Record where the work stands so another agent (or you, later) can continue.
  * @param {{ summary?: string, next?: string[], open?: string[], agent?: string, auto?: boolean }} input
  */
-export function handoff(paths, input) {
+export function handoff(paths, input, config = DEFAULT_CONFIG) {
   if (!input.auto && !input.summary?.trim()) throw new Error('El handoff necesita --summary "qué se hizo y dónde quedó".');
   const agent = input.agent || detectAgent();
   const at = now();
@@ -125,7 +127,7 @@ export function handoff(paths, input) {
 
   mkdirSync(paths.sessions, { recursive: true });
   const journal = join(paths.sessions, `${at.replace(/[:.]/g, '-')}-${agent}.md`);
-  writeFileSync(journal, [
+  const journalText = [
     `# Handoff · ${agent} · ${at}`,
     '',
     h.ticket ? `Ticket: ${h.ticket.id} (${h.ticket.lane ?? 'sin carril'} · ${h.ticket.status})` : 'Ticket: ninguno activo',
@@ -142,8 +144,10 @@ export function handoff(paths, input) {
     '## Repos',
     ...repos.map((r) => `- ${r.repo}: ${r.branch}@${r.head}, ${r.changes.length} uncommitted change(s)`),
     '',
-  ].join('\n'));
-  return { handoff: h, journal };
+  ].join('\n');
+  writeFileSync(journal, journalText);
+  const warning = rememberHandoff({ paths, config }, h, journalText);
+  return { handoff: h, journal, warning };
 }
 
 /** Did anything happen after the handoff? (Hooks record activity every turn, even when nothing changed.) */
@@ -166,7 +170,7 @@ function ago(iso) {
  * Markdown brief for the agent starting a session. Read-only: never advances the workflow.
  * @param {string} [agent] who is resuming (to point out a switch of tool)
  */
-export function resumeBrief(paths, { agent } = {}) {
+export function resumeBrief(paths, { agent, config = DEFAULT_CONFIG } = {}) {
   const me = agent || detectAgent();
   const { handoff: h, activity } = loadSession(paths);
   const repos = gitSnapshot(paths.root);
@@ -240,15 +244,34 @@ export function resumeBrief(paths, { agent } = {}) {
     out.push('');
   }
 
-  const memory = listMemory(paths);
+  const mem = overview({ paths, config });
+  const backend = backendOf({ config });
   out.push('## Memory');
-  if (memory.length) {
-    out.push(`${memory.length} entr${memory.length === 1 ? 'y' : 'ies'}. Most recent:`);
-    for (const m of memory.slice(0, 6)) out.push(`- [${m.type}] ${m.title} \`${m.id}\``);
-  } else {
+  out.push(backend.name === 'engram'
+    ? 'Backend: **Engram** (shared by every agent configured with `engram setup`; its MCP tools `mem_search` / `mem_save` work too).'
+    : 'Backend: Markdown files in `.xjergx/memory/` (Engram not available).');
+  if (mem.engram) {
+    out.push('');
+    out.push('Recent Engram context:');
+    out.push('```');
+    out.push(mem.engram);
+    out.push('```');
+  }
+  const records = backend.name === 'engram' ? mem.markdown.filter((m) => m.type === 'task') : mem.markdown;
+  if (records.length) {
+    out.push('');
+    out.push(backend.name === 'engram' ? 'Ticket records in the repo:' : `${records.length} entr${records.length === 1 ? 'y' : 'ies'}. Most recent:`);
+    for (const m of records.slice(0, 6)) out.push(`- [${m.type}] ${m.title} \`${m.id}\``);
+  } else if (!mem.engram) {
     out.push('Empty.');
   }
+  if (mem.warning) out.push(`⚠ ${mem.warning}`);
   out.push('Search before deciding: `xjergx memory search "<terms>"` · read one: `xjergx memory show <id>`.');
+  const cg = codegraphStatus(config, paths.root);
+  if (cg.enabled) {
+    out.push('');
+    out.push('Code navigation: **codegraph** is available. Use `codegraph_explore` / `codegraph_context` to find symbols, callers and impact before reading files one by one.');
+  }
   out.push('');
 
   const skills = collectSkills(paths);

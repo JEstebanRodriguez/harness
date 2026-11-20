@@ -21,6 +21,16 @@ export const DEFAULT_CONFIG = {
   preflight: true,
   /** Tools that `xjergx sync` generates native files for. */
   targets: ['claude', 'codex', 'opencode', 'pi', 'omp'],
+  memory: {
+    /** auto: Engram when installed, Markdown otherwise · engram · markdown */
+    backend: 'auto',
+    /** Engram project name; null lets engram detect it from the directory, like the agents' MCP does. */
+    engramProject: null,
+    /** Engram project used for `--global` memories. */
+    globalProject: 'xjergx-global',
+  },
+  /** auto: use codegraph when installed or indexed · on · off */
+  codegraph: 'auto',
 };
 
 function isPlainObject(v) {
