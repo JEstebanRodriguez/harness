@@ -20,7 +20,7 @@ herramienta.
 | Qué | Fuente única | Cómo llega a cada herramienta |
 |---|---|---|
 | **Estado de la sesión** | `.xjergx/session.json` (último handoff) y `.xjergx/sessions/` (historial) | `xjergx resume` al empezar; `xjergx handoff` al terminar |
-| **Memoria** | `.xjergx/memory/` (proyecto) y `~/.xjergx/memory/` (global, todos tus proyectos) | `xjergx memory search / add / show` |
+| **Memoria** | [Engram](https://github.com/Gentleman-Programming/engram) si está instalado; si no, `.xjergx/memory/` (proyecto) y `~/.xjergx/memory/` (global) | `xjergx memory search / add / show`, o las herramientas MCP de Engram (`mem_search`, `mem_save`) |
 | **Skills** | `.xjergx/skills/<nombre>/SKILL.md` (estándar [Agent Skills](https://agentskills.io)) | `xjergx sync` las copia a `.claude/skills/` y `.agents/skills/` |
 | **Agents** | `.xjergx/agents/<nombre>.md` (frontmatter `name` + `description`, cuerpo = prompt) | `xjergx sync` genera `.claude/agents/*.md`, `.codex/agents/*.toml`, `.opencode/agents/*.md` y `.pi/prompts/*.md` |
 | **Instrucciones** | `.xjergx/protocol.md` (generado) | Bloque en `AGENTS.md` (Codex, OpenCode, Pi, omp) e import `@.xjergx/protocol.md` en `CLAUDE.md` |
@@ -62,14 +62,70 @@ continúa desde ahí.
 xjergx memory add "Exports usan streaming" --type decision --tags exports,csv \
   --body "Más de 200k filas superaban 512MB; usar streamCsv de src/lib/csv.ts"
 xjergx memory add "Prefiero pnpm" --type preference --global     # vale para todos tus proyectos
-xjergx memory search "csv"                                        # proyecto + global; títulos y tags pesan más
-xjergx memory show notes/2026-11-19-exports-usan-streaming
-xjergx memory list --type decision
+xjergx memory search "csv"
+xjergx memory show <id>                                           # id de Engram (#7) o de Markdown (notes/...)
+xjergx memory list
+xjergx memory backend                                             # engram | markdown, y por qué
 ```
 
-Cada entrada es un Markdown con frontmatter (`title`, `type`, `tags`, `agent`, `task`, `created`): se versiona con
-git y cualquier agente puede leerla aunque no tenga la CLI. Al cerrar cada ticket, el archivist escribe
-`memory/tasks/<ID>.md`. Tipos disponibles: `decision`, `convention`, `gotcha`, `asset`, `preference`, `note`.
+**Con Engram (recomendado).** Si el binario `engram` está en el PATH, `xjergx memory` escribe y busca ahí:
+- Es la misma base que usan los agentes conectados con `engram setup` a través de sus herramientas MCP
+  (`mem_search`, `mem_save`, `mem_context`…). Lo que guarda Codex lo encuentra Claude, aunque uno use la CLI y el
+  otro MCP.
+- Búsqueda full-text en SQLite (FTS5), contexto de sesiones recientes, interfaz de terminal (`engram tui`) y
+  [Git Sync](https://github.com/Gentleman-Programming/engram) para llevar la memoria a otra máquina o al equipo.
+- Los handoffs también se guardan en Engram, y al cerrar cada ticket su registro (`memory/tasks/<ID>.md`) se indexa
+  ahí. `xjergx resume` muestra el contexto reciente de Engram.
+- Tipo, tags, agente y ticket van como líneas al inicio del contenido (la CLI de Engram no tiene campos para eso).
+  Las memorias `--global` van al proyecto `xjergx-global` de Engram.
+
+**Sin Engram, o si una llamada a Engram falla.** La memoria se guarda en Markdown con frontmatter (`title`, `type`,
+`tags`, `agent`, `task`, `created`) en `.xjergx/memory/notes/` o en `~/.xjergx/memory/notes/`. Se versiona con git y
+cualquier agente puede leerla sin la CLI. La búsqueda siempre incluye estos archivos, así que nada se pierde al
+instalar Engram después.
+
+Los registros de tickets (`memory/tasks/<ID>.md`) siempre quedan en el repo, con o sin Engram. Tipos disponibles:
+`decision`, `convention`, `gotcha`, `asset`, `preference`, `note`.
+
+Configuración en `.xjergx/config.json`:
+
+```json
+"memory": { "backend": "auto", "engramProject": null, "globalProject": "xjergx-global" }
+```
+
+- `backend`: `auto` (Engram si está instalado), `engram` o `markdown`.
+- `engramProject`: `null` deja que Engram detecte el proyecto por el directorio, igual que hacen los agentes por MCP.
+  Fijalo si tu workspace tiene varios repos.
+- La variable de entorno `XJERGX_MEMORY_BACKEND` tiene prioridad sobre la config.
+
+### Exploración de código con codegraph
+
+Si [codegraph](https://github.com/colbymchenry/codegraph) está instalado, o el workspace tiene un índice
+`.codegraph/`, los prompts de cada fase le indican al agente cómo usarlo:
+- `codegraph_explore` para ubicar código y flujos.
+- `codegraph_context` para ver quién llama a un símbolo y el radio de impacto de un cambio.
+
+Lo usan en particular:
+- el classifier, para estimar cuántos archivos toca el ticket;
+- el explorer, para el análisis de impacto;
+- los reviewers, para revisar quién llama al código que cambió.
+
+Según su benchmark, ahorra tokens y llamadas a herramientas, sobre todo en repos grandes. El prompt le pide al agente
+correr esas consultas él mismo: si delega la exploración a un subagente que lee archivos, el grafo no se usa. Sin
+codegraph, los agentes usan búsqueda de texto como siempre.
+
+Configuración: `"codegraph": "auto" | "on" | "off"` en `.xjergx/config.json`, o la variable `XJERGX_CODEGRAPH`.
+
+### Conectar Engram y codegraph a cada herramienta
+
+```bash
+xjergx doctor          # estado de Engram, codegraph y cada herramienta configurada
+xjergx doctor --fix    # corre `engram setup <agente>` para claude-code, codex, opencode y pi
+codegraph init -i      # interactivo: indexa el workspace y conecta los agentes que elijas
+```
+
+`engram setup` no cubre omp, y el instalador de codegraph no cubre Pi ni omp. En esos casos `doctor` te avisa que
+agregues el servidor MCP a mano.
 
 ### Skills y agents
 
@@ -248,7 +304,7 @@ tiene prioridad sobre la del paquete.
   sessions/               historial de handoffs, uno por archivo
   activity.json           última actividad registrada por los hooks (ignorado por git)
   memory/tasks/<ID>.md    lo que aprendió cada ticket (archivist)
-  memory/notes/*.md       memoria escrita por cualquier agente
+  memory/notes/*.md       memoria escrita por cualquier agente (cuando no se usa Engram)
   skills/<nombre>/        tus skills compartidas (SKILL.md + archivos de apoyo)
   agents/<nombre>.md      tus agents compartidos y overrides de los roles
   protocol.md             instrucciones comunes (generado)
@@ -266,7 +322,8 @@ tiene prioridad sobre la del paquete.
 xjergx init | sync [--target <t>]... [--global] | import [--global] [--force]
 xjergx resume [--agent <t>]
 xjergx handoff --summary "..." [--next "..."]... [--open "..."]... [--agent <t>]
-xjergx memory add "<título>" [--body] [--type] [--tags a,b] [--global] | search "<q>" | list | show <id>
+xjergx memory add "<título>" [--body] [--type] [--tags a,b] [--global] | search "<q>" | list | show <id> | backend
+xjergx doctor [--fix] [--target <t>]...
 xjergx add | status | lane <ID> <carril>
 xjergx run  [--agent] [--mode] [--task] [--step] [--skip-preflight]
 xjergx next [--json] [--task] [--mode]

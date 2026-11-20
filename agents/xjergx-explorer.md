@@ -31,7 +31,9 @@ Search the project memory with `xjergx memory search "<terms>"` (and an engram/m
 
 ### Step 2: Dependency & Structure Analysis (Codegraph)
 
-Use codegraph capabilities if available; otherwise use file search and reading:
+If codegraph is available, start there and run the queries yourself (`codegraph_explore` to locate the flow,
+`codegraph_context` on each symbol you will touch to get callers, callees and impact radius); otherwise use file
+search and reading:
 - Map the execution flow and dependencies related to the requested feature.
 - Find existing utilities, UI components or database schemas to reuse instead of building from scratch.
 - Identify the exact files that will likely need to be modified.

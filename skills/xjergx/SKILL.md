@@ -22,7 +22,9 @@ shared skills. Continue from it. If it warns about activity after the last hando
 
 ## 2. Memory
 
-Search before deciding anything that may have been decided before:
+`xjergx memory` uses **Engram** when it is installed (the same store your Engram MCP tools `mem_search` /
+`mem_save` use, if this tool has them) and Markdown files in `.xjergx/memory/` otherwise. `xjergx memory backend`
+tells which one is active. Search before deciding anything that may have been decided before:
 
 ```bash
 xjergx memory search "csv export pagination"
@@ -65,7 +67,13 @@ Act on `action`: `run_phase` → read `promptFile` and do exactly that phase (or
 in `agent`); `approve` → show the artifact to the user, then `xjergx approve` or `xjergx reject --note "..."`;
 `done` / `idle` / `stop` / `blocked` → report to the user. Never edit `.xjergx/backlog.json` by hand.
 
-## 5. Skills and agents
+## 5. Code navigation
+
+If the codegraph MCP tools are available, prefer `codegraph_explore` (where does X live / how does Y flow) and
+`codegraph_context` (callers, callees and impact radius of a symbol) over reading files one by one. Run them
+yourself rather than delegating exploration to a subagent.
+
+## 6. Skills and agents
 
 Shared skills live in `.xjergx/skills/<name>/SKILL.md` and agents in `.xjergx/agents/<name>.md`. After creating or
 editing one there, run `xjergx sync` so every tool gets it. If you created one in a tool-specific folder

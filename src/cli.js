@@ -9,7 +9,9 @@ import { LANES, isLane } from './lanes.js';
 import { approve, reject, unblock, switchLane } from './engine.js';
 import { nextAction, runTask } from './workflow.js';
 import { syncProject, syncGlobal, importNative, TARGETS } from './sync.js';
-import { addMemory, searchMemory, listMemory, findMemory, MEMORY_TYPES } from './memory.js';
+import { MEMORY_TYPES } from './memory.js';
+import { remember, recall, overview, showMemory, backendOf } from './memstore.js';
+import { doctor, printDoctor } from './doctor.js';
 import { handoff, resumeBrief, detectAgent } from './session.js';
 
 const HELP = `xjergx — harness que elige ODD, RDD o SDD según el ticket y comparte memoria, skills,
@@ -22,16 +24,18 @@ Workspace
   sync                         Regenera skills, agents, instrucciones y hooks de cada herramienta
       [--target claude|codex|opencode|pi|omp ...] [--global]
   import                       Adopta skills/agents creados en .claude/, .codex/, .opencode/, ...  [--global] [--force]
+  doctor                       Estado de Engram, codegraph y cada herramienta  [--fix: corre engram setup]
 
 Continuidad entre agentes
   resume                       Contexto para retomar: último handoff, ticket, cambios, memoria  [--agent]
   handoff --summary "..."      Deja dicho dónde quedó todo  [--next "..."]... [--open "..."]... [--agent]
 
-Memoria
+Memoria (Engram si está instalado; si no, Markdown en .xjergx/memory)
   memory add "<título>"        [--body "..."] [--type ${MEMORY_TYPES.join('|')}] [--tags a,b] [--global]
   memory search "<términos>"   [--limit 10] [--json]
   memory list                  [--type] [--global] [--json]
-  memory show <id>
+  memory show <id>             (ids de Engram: número de observación)
+  memory backend               Muestra si la memoria usa Engram o Markdown
 
 Backlog
   add "<descripción>"          Agrega un ticket  [--lane odd|rdd|sdd] [--id T-123]
@@ -47,7 +51,7 @@ Modo host (tu agente orquesta)
   approve | reject --note "..." | unblock [--phase <fase>]   [--task]
 `;
 
-const BOOLEANS = new Set(['json', 'step', 'skip-preflight', 'help', 'version', 'yolo', 'dry-run', 'interactive', 'global', 'force', 'auto']);
+const BOOLEANS = new Set(['json', 'step', 'skip-preflight', 'help', 'version', 'yolo', 'dry-run', 'interactive', 'global', 'force', 'auto', 'fix']);
 
 export function parseArgs(argv) {
   const positionals = [];
@@ -190,13 +194,13 @@ function printSync(result, rootLabel) {
   for (const n of result.notes) console.log(`ℹ ${n}`);
 }
 
-function printMemoryEntries(entries, asJson) {
+function printMemoryEntries(entries, asJson, quietWhenEmpty = false) {
   if (asJson) {
     console.log(JSON.stringify(entries.map(({ body, ...rest }) => rest), null, 2));
     return;
   }
   if (!entries.length) {
-    console.log('Sin resultados.');
+    if (!quietWhenEmpty) console.log('Sin resultados.');
     return;
   }
   for (const e of entries) {
@@ -207,10 +211,10 @@ function printMemoryEntries(entries, asJson) {
 }
 
 function memoryCommand(ctx, [sub, ...rest], flags) {
-  const paths = existsSync(ctx.paths.base) ? ctx.paths : null;
+  const mctx = { paths: existsSync(ctx.paths.base) ? ctx.paths : null, config: ctx.config };
   switch (sub) {
     case 'add': {
-      const entry = addMemory(paths, {
+      const res = remember(mctx, {
         title: rest.join(' '),
         body: one(flags.body) ?? (flags.file ? readFileSync(one(flags.file), 'utf8') : ''),
         type: one(flags.type) ?? 'note',
@@ -219,29 +223,56 @@ function memoryCommand(ctx, [sub, ...rest], flags) {
         task: one(flags.task),
         global: Boolean(flags.global),
       });
-      console.log(`Guardado ${entry.id} (${entry.scope}).`);
+      if (res.warning) console.error(`⚠ ${res.warning}`);
+      console.log(res.backend === 'engram'
+        ? `Guardado en Engram${res.id ? ` (#${res.id})` : ''}${res.scope === 'global' ? `, proyecto ${ctx.config.memory.globalProject}` : ''}.`
+        : `Guardado ${res.id} (${res.scope}).`);
       return 0;
     }
     case 'search': {
       const query = rest.join(' ');
       if (!query.trim()) throw new Error('Uso: xjergx memory search "<términos>"');
-      printMemoryEntries(searchMemory(paths, query, { limit: Number(one(flags.limit) ?? 10) }), flags.json);
+      const res = recall(mctx, query, { limit: Number(one(flags.limit) ?? 10), scope: flags.global ? 'global' : undefined });
+      if (flags.json) {
+        console.log(JSON.stringify({ engram: res.engram, markdown: res.markdown.map(({ body, ...r }) => r) }, null, 2));
+        return 0;
+      }
+      if (res.warning) console.error(`⚠ ${res.warning}`);
+      if (res.engram) {
+        for (const r of res.engram) console.log(`## Engram (${r.scope})\n${r.text}\n`);
+        if (!res.engram.length) console.log('## Engram\nSin resultados.\n');
+        if (res.markdown.length) console.log('## Repo (.xjergx/memory)');
+      }
+      printMemoryEntries(res.markdown, false, Boolean(res.engram));
       return 0;
     }
     case 'list': {
-      let entries = listMemory(paths, { scope: flags.global ? 'global' : undefined });
-      if (flags.type) entries = entries.filter((e) => e.type === one(flags.type));
-      printMemoryEntries(entries.map((e) => ({ ...e, snippet: '' })), flags.json);
+      if (flags.global || flags.type || flags.json || !mctx.paths) {
+        // Typed / JSON listing comes from the Markdown store (Engram's CLI does not expose those filters).
+        let entries = overview(mctx).markdown.filter((e) => !flags.global || e.scope === 'global');
+        if (flags.type) entries = entries.filter((e) => e.type === one(flags.type));
+        printMemoryEntries(entries.map((e) => ({ ...e, snippet: '' })), flags.json);
+        return 0;
+      }
+      const res = overview(mctx, { lines: 200 });
+      if (res.warning) console.error(`⚠ ${res.warning}`);
+      if (res.engram) console.log(`## Engram\n${res.engram}\n\n## Repo (.xjergx/memory)`);
+      printMemoryEntries(res.markdown.map((e) => ({ ...e, snippet: '' })), false, Boolean(res.engram));
       return 0;
     }
     case 'show': {
-      const entry = rest[0] && findMemory(paths, rest[0]);
-      if (!entry) throw new Error(`No encontré la memoria "${rest[0] ?? ''}". Probá con xjergx memory search.`);
-      console.log(readFileSync(entry.file, 'utf8'));
+      const text = rest[0] && showMemory(mctx, rest[0]);
+      if (!text) throw new Error(`No encontré la memoria "${rest[0] ?? ''}". Probá con xjergx memory search.`);
+      console.log(text);
+      return 0;
+    }
+    case 'backend': {
+      const b = backendOf(mctx);
+      console.log(`${b.name} — ${b.reason}`);
       return 0;
     }
     default:
-      throw new Error('Uso: xjergx memory <add|search|list|show>');
+      throw new Error('Uso: xjergx memory <add|search|list|show|backend>');
   }
 }
 
@@ -311,7 +342,7 @@ export async function main(argv, root = process.cwd()) {
       // Runs from SessionStart hooks: never fail, never print noise outside a workspace.
       if (!initialized) return 0;
       try {
-        console.log(resumeBrief(paths, { agent: one(flags.agent) }));
+        console.log(resumeBrief(paths, { agent: one(flags.agent), config: ctx.config }));
       } catch (err) {
         console.error(`xjergx resume: ${err.message}`);
       }
@@ -329,7 +360,8 @@ export async function main(argv, root = process.cwd()) {
         open: list(flags.open),
         agent: one(flags.agent),
         auto: Boolean(flags.auto),
-      });
+      }, ctx.config);
+      if (res.warning) console.error(`⚠ ${res.warning}`);
       if (!flags.auto) {
         console.log(`Handoff guardado (${res.handoff.agent}). Cualquier agente lo verá con \`xjergx resume\`.`);
         console.log(`Diario: ${display(paths, res.journal)}`);
@@ -339,6 +371,12 @@ export async function main(argv, root = process.cwd()) {
 
     case 'memory':
       return memoryCommand(ctx, rest, flags);
+
+    case 'doctor': {
+      const report = doctor(ctx, { fix: Boolean(flags.fix), targets: targetsFrom(flags, ctx.config) });
+      printDoctor(report);
+      return 0;
+    }
 
     case 'add': {
       const data = loadBacklog(paths);

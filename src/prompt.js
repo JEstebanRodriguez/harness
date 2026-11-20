@@ -4,6 +4,7 @@ import { LANES, LANE_ORDER, laneRank, CLASSIFY_PHASE } from './lanes.js';
 import { outputPath, listTaskArtifacts } from './artifacts.js';
 import { PACKAGE_ROOT, taskDir, display } from './paths.js';
 import { parseFrontmatter } from './frontmatter.js';
+import { engramStatus, codegraphStatus } from './tools.js';
 
 /** Role prompt body: workspace override in .xjergx/agents/ wins over the bundled one. */
 export function loadRole(paths, agent) {
@@ -39,6 +40,8 @@ export function buildPrompt(ctx, task, phase) {
   const dir = display(paths, taskDir(paths, task.id));
   const lane = task.lane ? LANES[task.lane] : null;
   const memoryDir = display(paths, paths.memory);
+  const useEngram = engramStatus(ctx.config).enabled;
+  const useCodegraph = codegraphStatus(ctx.config, paths.root).enabled;
   const progress = `${display(paths, taskDir(paths, task.id))}/progress-${phase.id}.md`;
 
   const inputs = listTaskArtifacts(paths, task.id)
@@ -68,7 +71,11 @@ export function buildPrompt(ctx, task, phase) {
   lines.push(inputs.length
     ? `- **Read first (artifacts from earlier phases):** ${inputs.map((f) => `\`${f}\``).join(', ')}`
     : '- **Earlier artifacts:** none yet.');
-  lines.push(`- **Project memory (engram):** \`${memoryDir}/\` — past tickets (\`tasks/\`) and notes from every agent (\`notes/\`). Search it with \`xjergx memory search "<terms>"\` (it also covers the user's global memory).`);
+  if (useEngram) {
+    lines.push(`- **Project memory:** **Engram**, shared by every agent the user works with. Use your Engram MCP tools (\`mem_search\`, \`mem_save\`, \`mem_context\`) if you have them; otherwise \`xjergx memory search "<terms>"\` / \`xjergx memory add\`, which go to the same Engram store. Finished tickets are also kept as files in \`${memoryDir}/tasks/\`.`);
+  } else {
+    lines.push(`- **Project memory:** \`${memoryDir}/\` — past tickets (\`tasks/\`) and notes from every agent (\`notes/\`). Search it with \`xjergx memory search "<terms>"\` (it also covers the user's global memory).`);
+  }
   lines.push(`- **Progress notes for this phase:** \`${progress}\` — if it exists, a previous session (maybe another agent) started this phase: continue from it instead of starting over.`);
   lines.push(`- **Your output (exact path):** \`${out}\``);
   lines.push('');
@@ -89,7 +96,9 @@ export function buildPrompt(ctx, task, phase) {
   lines.push(`1. This phase is finished only when \`${out}\` exists. ${CHECK_HELP[phase.check]}`);
   lines.push('2. Do NOT edit `.xjergx/backlog.json` and do NOT run other phases. The harness verifies your output and moves on.');
   lines.push('3. Respect the project: read its own conventions (AGENTS.md, CLAUDE.md, CONTRIBUTING, linters, existing code) before writing anything.');
-  lines.push('4. Tools such as "engram" or "codegraph" are optional. If you do not have them, use `xjergx memory search` and file search instead.');
+  lines.push(useCodegraph
+    ? '4. **Code navigation:** see "Codegraph" below. Memory: search it before deciding anything that may have been decided before.'
+    : '4. **Code navigation:** use file search (rg/grep, glob) and read the relevant files. Memory: search it before deciding anything that may have been decided before.');
   lines.push(`5. **Resumable work:** this phase may be continued by a different coding agent. Keep \`${progress}\` up to date as you go:`);
   lines.push('   what is done, what is left, and every decision or answer the user gave you. Durable lessons for future tickets go to');
   lines.push('   `xjergx memory add "<title>" --body "..." --type decision|convention|gotcha|asset`.');
@@ -99,6 +108,17 @@ export function buildPrompt(ctx, task, phase) {
     lines.push(`6. **Escalation:** if you discover the ticket is bigger or riskier than this lane allows (it changes a schema, public API or`);
     lines.push('   cross-service contract, touches auth/payments/personal data, or the scope keeps growing), stop and write');
     lines.push(`   \`${dir}/escalation.json\` with \`{"to": "${heavier.join('" | "')}", "reason": "..."}\`. The harness will move the task.`);
+  }
+  if (useCodegraph) {
+    lines.push('');
+    lines.push('## Codegraph');
+    lines.push('This workspace has **codegraph**, a pre-built graph of the code (symbols, calls, imports). Use it before opening files one by one:');
+    lines.push('- `codegraph_explore` — ask in natural language where something lives or how a flow works; returns the relevant symbols and code.');
+    lines.push('- `codegraph_context` — everything around one symbol: definition, callers, callees and impact radius. Use it to size a change and to list the files it touches.');
+    lines.push('- `codegraph_status` — if results look stale or empty, check the index.');
+    lines.push('Run these queries **yourself**: do not hand code exploration to a subagent that reads files, or the graph goes unused.');
+    lines.push('Fall back to text search for non-code files (docs, configs, SQL in strings), unsupported languages, or when you do not know any name to start from.');
+    lines.push('If the codegraph tools are not available in your session, use text search; do not stop.');
   }
   lines.push('');
   lines.push('---');

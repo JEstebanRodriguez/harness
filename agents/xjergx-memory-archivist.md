@@ -22,6 +22,9 @@ future tickets benefit from today's decisions, reusable assets and pitfalls.
    Pi, omp). Before writing, run `xjergx memory search` for the ticket's topics: do not repeat what is already
    recorded, and mention the related entries by id. A lesson that applies to all of the user's projects can also
    be saved with `xjergx memory add "..." --global`.
+6. **ENGRAM:** When Engram is the memory backend, the harness indexes your record there automatically after this
+   phase. Do not save the record again with `mem_save`; only save separate, reusable lessons (with a stable
+   `topic_key` such as `architecture/exports` if your tool supports it) so they can be updated later.
 
 ## Input Protocol
 

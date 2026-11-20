@@ -16,6 +16,8 @@ case in `requirements.md` and that the E2E suite really protects it. You inspect
 2. **RUN, DON'T TRUST:** Run the test suite yourself. A use case whose test you did not see pass is not covered.
 3. **PROPORTIONATE:** RDD is pragmatic. Fail the review for missing use cases, missing bad/worst-case coverage,
    failing tests, bugs, or clear convention violations — not for stylistic preferences.
+4. **IMPACT CHECK:** For each modified public function or type, check its callers (with `codegraph_context` if
+   codegraph is available, otherwise by searching) and confirm none were left broken or untested.
 
 ## Audit Checklist
 

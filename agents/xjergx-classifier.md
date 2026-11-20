@@ -15,7 +15,7 @@ ODD (organic), RDD (requirement-driven) or SDD (spec-driven). Your value is in b
 
 1. **READ-ONLY:** Do not modify any project file. Your only output is the classification JSON.
 2. **EVIDENCE OVER GUESSING:** Look at the real code before answering. Search for the modules, routes, models
-   and components the ticket mentions. A quick, targeted exploration (a few minutes) is enough; do not design the solution.
+   and components the ticket mentions (with codegraph first when the harness says it is available). A quick, targeted exploration (a few minutes) is enough; do not design the solution.
 3. **NO QUESTIONS:** Never ask the user anything. If the ticket is ambiguous, that ambiguity IS a signal: report it in
    `requirements_clarity`.
 4. **BE CONSERVATIVE ON RISK:** If you are unsure whether something touches a contract or a sensitive area, answer `true`.
@@ -23,7 +23,8 @@ ODD (organic), RDD (requirement-driven) or SDD (spec-driven). Your value is in b
 ## How to measure each signal
 
 - `files_estimate` (integer): files that will most likely be created or modified, tests included. Count from what you
-  found in the codebase, not from the ticket wording.
+  found in the codebase, not from the ticket wording. If codegraph is available, run `codegraph_context` on the
+  symbols the ticket changes: its callers and impact radius are the best estimate of the files involved.
 - `touches_contract` (boolean): changes a database schema or migration, a public/external API (REST, GraphQL, SDK),
   an event or message format, a config format other systems read, or an interface shared across services/packages.
 - `sensitive_area` (boolean): authentication, authorization/permissions, payments/billing, personal or regulated data,
